@@ -1,0 +1,781 @@
+<html>
+
+<style type="text/css">
+
+body {
+
+    font-size: 25px;
+    background-color: #000;
+    color: #ddd;
+
+}
+h1, h2, h3, h4 {line-height: 0.0em;}
+
+h1 {
+    font-size: 300%;
+}
+h2 {
+    font-size: 200%;
+}
+canvas {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    outline: none;
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
+    
+    outline: 0px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+}
+.aligner {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -moz-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    -moz-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+.aligner-item {
+    margin: auto;
+}
+#welcomeMessage {
+    outline: 0px;
+    text-align: center;
+    font-family:"Arial", "Helvetica Neue", "Helvetica", sans-serif;
+    z-index: 3;
+}
+#playableSurface{
+    z-index: 0;
+}
+#imageWrapper{
+    outline: 0px;
+    z-index: 2;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    opacity: 0.2;
+
+}
+#representativeImage{
+    outline: 0px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+}
+.button {
+    background-color: #111;
+    border: none;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 100%;
+    border-radius: 25px;
+}
+.footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: black;
+    text-align: center;
+    font-family:"Arial", "Helvetica Neue", "Helvetica", sans-serif;
+    z-index:3;
+}
+.warning {
+    color: red;
+}
+</style>
+
+<script src="processing.min.js"></script>
+
+<script type="text/javascript">
+
+var touchDistanceNormal = 0.0;
+var touchPressed = false;
+var dragAnchorX = 0;
+var dragAnchorY = 0;
+var dragCurrentX = 0;
+var dragCurrentY = 0;
+
+var numberOfAnalyserBands = 512.0;
+
+//helper functions
+function formatIdentifier(identifier) {
+    return "id" + identifier;
+}
+
+function ensurePositiveNumber(number) {
+    if (isNaN(number) || number <= 0) {
+        number = 0.0;
+    }
+    return number;
+}
+function formatCoord(coordinates) {
+
+    coordinates.x = parseFloat(ensurePositiveNumber(coordinates.x));
+    coordinates.y = parseFloat(ensurePositiveNumber(coordinates.y));
+    return coordinates;
+}
+
+function midiNoteToFrequency (note) {
+    return Math.pow(2, ((note - 69) / 12)) * 440;
+}
+
+function mapNoteToPentatonic(note) {
+
+    var noteInScale = Math.floor(note % 12);
+    var baseOfOctave = Math.floor(note) - noteInScale;
+
+    var mappedNoteInScale = 0;
+    switch(noteInScale) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+        mappedNoteInScale = 0;
+        break;
+    case 4:
+        mappedNoteInScale = 0;
+        break;
+    case 5:
+        mappedNoteInScale = 5;
+        break;
+    case 6:
+        mappedNoteInScale = 5;
+        break;
+    case 7:
+        mappedNoteInScale = 7;
+        break;
+    case 8:
+        mappedNoteInScale = 7;
+        break;
+    case 9:
+        mappedNoteInScale = 9;
+        break;
+    case 10:
+        mappedNoteInScale = 9;
+        break;
+    case 11:
+        mappedNoteInScale = 11;
+        break;
+    default:
+        mappedNoteInScale = 0; 
+    }
+
+    return baseOfOctave + mappedNoteInScale;
+}
+
+function mapNoteToPsy(note) {
+
+    //1-3-1-2-1-3-1
+
+    var noteInScale = Math.floor(note % 12);
+    var baseOfOctave = Math.floor(note) - noteInScale;
+
+    var mappedNoteInScale = 0;
+    switch(noteInScale) {
+    case 0:
+        mappedNoteInScale = 0;
+        break;
+
+    case 1:
+        mappedNoteInScale = 0;
+        break;
+
+    case 2:
+        mappedNoteInScale = 1;
+        break;
+    case 3:
+        mappedNoteInScale = 4;
+        break;
+    case 4:
+        mappedNoteInScale = 5;
+        break;
+    case 5:
+        mappedNoteInScale = 5;
+        break;
+    case 6:
+        mappedNoteInScale = 7;
+        break;
+    case 7:
+        mappedNoteInScale = 7;
+        break;
+    case 8:
+        mappedNoteInScale = 7;
+        break;
+    case 9:
+        mappedNoteInScale = 8;
+        break;
+    case 10:
+        mappedNoteInScale = 8;
+        break;
+    case 11:
+        mappedNoteInScale = 11;
+        break;
+    default:
+        mappedNoteInScale = 0; 
+    }
+
+    return baseOfOctave + mappedNoteInScale;
+}
+
+function makeDistortionCurve(amount) {
+  var k = typeof amount === 'number' ? amount : 50,
+    n_samples = 44100,
+    curve = new Float32Array(n_samples),
+    deg = Math.PI / 180,
+    i = 0,
+    x;
+  for ( ; i < n_samples; ++i ) {
+    x = i * 2 / n_samples - 1;
+    curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+  }
+  return curve;
+};
+
+//startup code
+var context,
+    gurgles = {}, 
+    ongoingTouches = [],
+    masterGain, 
+    delayNode, 
+    delayWetGain,
+    delayFeedbackGain,
+    compressorInputGain,
+    compressor,
+    analyser,
+    frequencyData = new Uint8Array(Math.floor(numberOfAnalyserBands));
+
+function setupSynth () {
+
+    window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext;
+
+    context = new AudioContext();
+
+    compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = -2;
+    compressor.knee.value = 2;
+    compressor.ratio.value = 80;
+    compressor.attack.value = 0.002;
+    compressor.release.value = 0.01;
+    compressor.connect(context.destination);
+
+    compressorInputGain = context.createGain();
+    compressorInputGain.gain.value = 1.0;
+    compressorInputGain.connect(compressor);
+
+    masterGain = context.createGain();
+    masterGain.gain.value = 1.0;
+    //dry
+    masterGain.connect(compressorInputGain);
+
+    delayWetGain = context.createGain();
+    delayWetGain.gain.value = 0.8;
+    delayWetGain.connect(compressorInputGain);
+
+    delayNode = context.createDelay(10.0);
+    delayNode.connect(delayWetGain);
+    delayNode.delayTime.value = 0.3;
+
+    delayFeedbackGain = context.createGain();
+    delayFeedbackGain.gain.value = 0.5;
+    delayNode.connect(delayFeedbackGain);
+
+    var delayFilter = context.createBiquadFilter();
+    delayFilter.type = 'highpass';
+    delayFilter.frequency.value = 1700.0;
+    delayFilter.Q.value = 2;
+
+    delayFeedbackGain.connect(delayFilter);
+    delayFilter.connect(delayNode);
+
+
+    analyser = context.createAnalyser();
+    analyser.frequencyBinCount = numberOfAnalyserBands;
+    masterGain.connect(analyser);
+    delayNode.connect(analyser);
+
+
+    document.body.style.backgroundColor = "black";
+
+    var synth = window.speechSynthesis;
+    var utterThis = new SpeechSynthesisUtterance("sigh drop!");
+    //synth.speak(utterThis);
+
+    context.createPsyGurgle = function(coordsNormalized) {
+
+        coordsNormalized = formatCoord(coordsNormalized);
+
+        //interpreting normalized (0.0-1.0) coordinates
+        var note = 36 + (Math.pow(coordsNormalized.x, 1.5) * 56)
+        var fallRate = coordsNormalized.y * 0.5;
+
+        var freqWhenDraggingStarts = -1.0;
+        var startingCoords = coordsNormalized;
+        var pitchGlideRate = 0.2;
+
+        dragAnchorX = coordsNormalized.x;
+        dragAnchorY = coordsNormalized.y;
+        dragCurrentX = coordsNormalized.x;
+        dragCurrentY = coordsNormalized.y;
+
+
+        //'this' refers to the audio context
+        var now = this.currentTime;
+
+        var oscillator = this.createOscillator();
+
+        oscillator.startingCoords = coordsNormalized;
+
+        //mapNoteToPentatonic(note)
+        var frequency = midiNoteToFrequency(note);
+        oscillator.frequency.value = frequency;
+        oscillator.type = 'sawtooth';
+
+        //oscillator stopped when touch stops
+        oscillator.start(now);
+        oscillator.frequency.setTargetAtTime(20, now, fallRate);
+
+        //pre-filter distortion
+        var distortion = this.createWaveShaper();
+        distortion.curve = makeDistortionCurve(100);
+        distortion.oversample = '4x';
+
+        //filter
+        var filter = this.createBiquadFilter();
+        filter.type = 'bandpass';
+        var target_filter_freq = 10000;
+        filter.frequency.value = 0.0;
+        filter.Q.value = 2;
+        filter.frequency.setTargetAtTime(target_filter_freq, now + 0.0, fallRate * 2.0);
+
+        delayNode.delayTime.setTargetAtTime(Math.random() / 2.0, now, 1.0);
+
+        //amp envelope
+        var envelope = this.createGain();
+        envelope.gain.value = 0;
+        envelope.gain.setTargetAtTime(1.0, now, 0.00001);
+
+        var delaySend = this.createGain();
+        delaySend.gain.value = 0.0;
+        delaySend.gain.setTargetAtTime(0.5, now, 0.5);
+        delaySend.connect(delayNode);
+
+        //connections
+        oscillator.connect(distortion);
+        distortion.connect(filter);
+        filter.connect(envelope);
+        envelope.connect(masterGain);
+        envelope.connect(delaySend);
+        delaySend.connect(delaySend);
+
+        oscillator.connect=function() {
+            envelope.connect.apply(envelope, arguments);
+        }
+        oscillator.disconnect=function() {
+            envelope.disconnect.apply(envelope, arguments);
+        }
+
+        var ctx = this;
+        oscillator.finish=function() {
+
+            envelope.gain.setTargetAtTime(0.0, ctx.currentTime, 0.0001);
+
+            console.log("finish");
+            oscillator.stop(ctx.currentTime + 0.2);
+        }
+
+        oscillator.updateSound=function(coords) {
+
+            coords = formatCoord(coords);
+
+            if (pitchGlideRate > 0.1) {
+                pitchGlideRate *= 0.95;
+            }
+
+            dragCurrentX = coords.x;
+            dragCurrentY = coords.y;
+
+            console.log("dragCurrentX:" + dragCurrentX + " dragCurrentY:" + dragCurrentY);
+
+            var nextFilterFreq = (Math.pow(coords.y,3) * 10000) + 10;
+            filter.frequency.setTargetAtTime(nextFilterFreq, ctx.currentTime + 0.0, 0.01);
+
+
+            var shallowCurve = 5.0 + (Math.pow(coords.x,2) * 200.0);
+
+            var steepCurve = Math.pow(coords.x,6) * 1200.0;
+
+            oscillator.frequency.setTargetAtTime(shallowCurve + steepCurve, ctx.currentTime, pitchGlideRate);
+
+
+        }
+
+        return oscillator;
+
+    }
+
+}
+
+var isUnlocked = false;
+function unlock() {
+
+    if (!isUnlocked) {
+        isUnlocked = true;
+        setupSynth();
+    }
+
+}
+
+var fixAudioContext = function (e) {
+
+    self.unlock();
+
+    document.getElementById("welcomeMessage").style.display = 'none';
+    document.getElementById("imageWrapper").style.display = 'none';
+
+
+}
+
+function updateTouchDistanceFromNormalizedCoords(normalizedCoords) {
+    touchPressed = true;
+    touchDistanceNormal = Math.sqrt(Math.pow(normalizedCoords.x - 0.5,2)+Math.pow(normalizedCoords.y - 0.5,2));
+
+}
+
+var triggerNoteMouse = function (e) {
+
+    //canvasResize();
+
+    if (isUnlocked) {
+
+        touchPressed = true;
+        console.log("Trigger Note mouse");
+        var rect = e.target.getBoundingClientRect();
+        var coordsNormalized = {x:e.clientX/rect.width, y:e.clientY/rect.height};
+        updateTouchDistanceFromNormalizedCoords(coordsNormalized);
+        console.log("create gurgle x:" + coordsNormalized.x + " y:" + coordsNormalized.y);
+        var gurgle = context.createPsyGurgle(coordsNormalized);
+        gurgle.connect(masterGain);
+        gurgles['mouse'] = gurgle;
+    }
+    else {
+        fixAudioContext();
+    }
+
+}
+
+var updateNoteMouse = function (e) {
+
+    if (isUnlocked) {
+
+
+        console.log("Update Note mouse");
+        if (touchPressed) {
+            var rect = e.target.getBoundingClientRect();
+            var coordsNormalized = {x:e.clientX/rect.width, y:e.clientY/rect.height};
+            updateTouchDistanceFromNormalizedCoords(coordsNormalized);
+
+            if ('mouse' in gurgles) {
+                gurgles['mouse'].updateSound(coordsNormalized);
+            }
+        }
+    }
+    else{
+        //fixAudioContext();
+    }
+
+}
+
+var stopNoteMouse = function (e) {
+
+    if (isUnlocked) {
+
+        console.log("stop gurgle " + e + " " + gurgles["mouse"]);
+        if ('mouse' in gurgles) {
+            gurgles['mouse'].finish();
+        }
+
+        touchDistanceNormal = 0.0;
+        touchPressed = false;
+    }
+    else{
+        fixAudioContext();
+    }
+
+}
+
+var triggerNoteTouch = function (e) {
+
+    e.preventDefault(); //to prevent scrolling
+
+    if (isUnlocked) {
+
+        var rect = e.target.getBoundingClientRect();
+
+        for(var i = 0; i < e.changedTouches.length; i++) {
+                
+            var coordsNormalized = {x:e.changedTouches[i].clientX/rect.width, y:e.changedTouches[i].clientY/rect.height};
+            updateTouchDistanceFromNormalizedCoords(coordsNormalized);
+
+            var gurgle = context.createPsyGurgle(coordsNormalized);
+            gurgle.connect(masterGain);
+            gurgles[formatIdentifier(e.changedTouches[i].identifier)] = gurgle;
+        }
+
+
+    }
+    else {
+        fixAudioContext();
+    }
+
+}
+
+var updateNoteTouch = function (e) {
+
+    e.preventDefault(); //to prevent scrolling
+
+    if (isUnlocked) {
+
+        for(var i = 0; i < e.changedTouches.length; i++) {
+
+            var rect = e.target.getBoundingClientRect();
+            var coordsNormalized = {x:e.changedTouches[i].clientX/rect.width, y:e.changedTouches[i].clientY/rect.height};
+            updateTouchDistanceFromNormalizedCoords(coordsNormalized);
+
+
+            if (formatIdentifier(e.changedTouches[i].identifier) in gurgles) {
+
+                gurgles[formatIdentifier(e.changedTouches[i].identifier)].updateSound(coordsNormalized);
+            }
+        }
+    }
+    else {
+        fixAudioContext();
+    }
+}
+
+var stopNoteTouch = function (e) {
+
+    e.preventDefault(); //to prevent scrolling
+
+    if (isUnlocked) {
+
+        for(var i = 0; i < e.changedTouches.length; i++) {
+
+            if (formatIdentifier(e.changedTouches[i].identifier) in gurgles) {
+                gurgles[formatIdentifier(e.changedTouches[i].identifier)].finish();
+                delete gurgles[formatIdentifier(e.changedTouches[i].identifier)];
+            }
+
+        }
+
+        touchDistanceNormal = 0.0;
+        touchPressed = false;
+
+
+    }
+    else {
+        fixAudioContext();
+    }
+}
+
+var triggerNoteMIDI = function (noteNumber, velocity) {
+
+    if (isUnlocked) {
+
+        var coordsNormalized = {x:(noteNumber / 127.0), y:1.0 - (velocity/127.0)};
+        updateTouchDistanceFromNormalizedCoords(coordsNormalized);
+
+        var gurgle = context.createPsyGurgle(coordsNormalized);
+        gurgle.connect(masterGain);
+        gurgles[formatIdentifier(noteNumber)] = gurgle;
+
+    }
+    else{
+        fixAudioContext();
+    }
+
+}
+
+var updateNoteMIDI = function (pitchBend, modWheel) {
+
+    if (isUnlocked) {
+
+        for(var i = 0; i < 128; i++) {
+
+            var coordsNormalized = {x:(pitchBend / 127.0), y:(modWheel / 127.0)};
+            updateTouchDistanceFromNormalizedCoords(coordsNormalized);
+
+
+            if (formatIdentifier(i) in gurgles) {
+                gurgles[formatIdentifier(i)].updateSound(coordsNormalized);
+            }
+        }
+    }
+    else {
+        fixAudioContext();
+    }
+}
+
+var stopNoteMIDI = function (noteNumber) {
+
+    if (isUnlocked) {
+
+
+        if (formatIdentifier(noteNumber) in gurgles) {
+            gurgles[formatIdentifier(noteNumber)].finish();
+            delete gurgles[formatIdentifier(noteNumber)];
+        }
+
+
+        touchDistanceNormal = 0.0;
+        touchPressed = false;
+
+        //if other notes are still on, don't turn off the touches boolean yet
+        for(var i = 0; i < 128; i++) {
+            if (formatIdentifier(i) in gurgles) {
+                touchPressed = true;
+            }
+        }
+
+
+    }
+    else {
+        fixAudioContext();
+    }
+}
+
+
+window.addEventListener('touchstart', triggerNoteTouch, false);
+window.addEventListener('touchmove', updateNoteTouch, false);
+window.addEventListener('touchend', stopNoteTouch, false);
+window.addEventListener('touchcancel', stopNoteTouch, false);
+window.addEventListener('mousedown', triggerNoteMouse, false);
+window.addEventListener('mousemove', updateNoteMouse, false);
+window.addEventListener('mouseup', stopNoteMouse, false);
+window.addEventListener('mousecancel', stopNoteMouse, false);
+
+
+//MIDI
+if (navigator.requestMIDIAccess) {
+    navigator.requestMIDIAccess()
+        .then(midiSuccess, midiFailure);
+}
+
+function midiSuccess (midi) {
+
+    console.log('Success with midi devices.')
+
+    var inputs = midi.inputs.values();
+    // inputs is an Iterator
+ 
+    for (var input = inputs.next(); input && !input.done; input = inputs.next()) {
+        // each time there is a midi message call the onMIDIMessage function
+        input.value.onmidimessage = onMIDIMessage;
+    }
+}
+ 
+function midiFailure () {
+    console.error('No access to your midi devices.')
+}
+
+//storing last message for pitch and modwheel so we can send both when either updates
+var lastPitchBend = 64;
+var lastModwheel = 0;
+
+function onMIDIMessage (message) {
+    console.log("midi: " + message.data);
+
+
+    //note on
+    if (message.data[0] === 144 && message.data[2] > 0) {
+        triggerNoteMIDI(message.data[1], message.data[2]);
+    }
+
+    //note off
+    if (message.data[0] === 128 || message.data[2] === 0) {
+        stopNoteMIDI(message.data[1]);
+    }
+    //pitchbend and modulation for 'dragging' control
+
+    //mod wheel
+    if (message.data[0] === 176 && message.data[1] === 1) {
+        lastModwheel = message.data[2];
+        updateNoteMIDI(lastPitchBend, lastModwheel);
+    }
+
+    //pitch bend
+    if (message.data[0] === 224) {
+        lastPitchBend = message.data[2];
+        updateNoteMIDI(lastPitchBend, lastModwheel);
+    }
+
+    //delay mix / feedback
+    if (message.data[0] === 176 && message.data[1] === 91) {
+        var delayFeedback = parseFloat(message.data[2]);
+        delayFeedbackGain.gain.setTargetAtTime(delayFeedback / 256.0, context.currentTime, 0.0001);
+        delayWetGain.gain.setTargetAtTime(delayFeedback / 256.0, context.currentTime, 0.0001);
+    }
+
+
+
+}
+</script>
+
+<head>
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-112808298-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'UA-112808298-1');
+</script>
+<title>PSYREN: Psytrance Dub Siren</title>
+<meta property="og:url"                content="https://bolasol.com/psyren" />
+<meta property="og:title"              content="PSYREN" />
+<meta property="og:description"        content="Psytrance dub siren synthesizer and visuals." />
+<meta property="og:image"              content="https://bolasol.com/psyren/psyren.jpg" />
+</head>
+<body>
+<canvas id="playableSurface" data-processing-sources="psyrenvisuals/psyrenvisuals.pde"></canvas>
+<div id="imageWrapper"><img id="representativeImage" src="psyren.jpg"></div>
+<div class="aligner">
+<div id="welcomeMessage" class="aligner-item">
+    <h1>Psyren</h1>
+    <p class="button">Click anywhere to begin</p>
+    <p> </p>
+    <p class="warning">[EPILEPSY WARNING]</p>
+</div>
+</div><!-- end of aligner -->
+<div class="footer">
+  <p>Psyren - 2018 Bolasol, Inc.</p>
+</div>
+</body>
+</html>
