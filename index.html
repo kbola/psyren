@@ -475,6 +475,7 @@ var triggerNoteMouse = function (e) {
 
     if (isUnlocked) {
 
+
         touchPressed = true;
         console.log("Trigger Note mouse");
         var rect = e.target.getBoundingClientRect();
@@ -681,7 +682,10 @@ window.addEventListener('mousedown', triggerNoteMouse, false);
 window.addEventListener('mousemove', updateNoteMouse, false);
 window.addEventListener('mouseup', stopNoteMouse, false);
 window.addEventListener('mousecancel', stopNoteMouse, false);
-
+window.addEventListener('contextmenu', function(ev) {
+    ev.preventDefault();
+    return false;
+}, false);
 
 //MIDI
 if (navigator.requestMIDIAccess) {
